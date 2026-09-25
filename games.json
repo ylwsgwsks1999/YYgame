@@ -1,0 +1,76 @@
+{
+  "version": "1.0.0",
+  "launcher": "Intochina Game Center",
+  "games": [
+    {
+      "id": "chess",
+      "name": "象棋",
+      "icon": "♟️",
+      "description": "中国象棋游戏模块预留入口。",
+      "version": "0.1.0",
+      "entry": "games/chess/game.html",
+      "category": "棋类",
+      "tags": [
+        "单机",
+        "策略"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "go",
+      "name": "围棋",
+      "icon": "⚫",
+      "description": "围棋游戏模块预留入口。",
+      "version": "0.1.0",
+      "entry": "games/go/game.html",
+      "category": "棋类",
+      "tags": [
+        "单机",
+        "策略"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "jungqi",
+      "name": "军棋",
+      "icon": "🚩",
+      "description": "军棋游戏模块预留入口。",
+      "version": "0.1.0",
+      "entry": "games/jungqi/game.html",
+      "category": "棋类",
+      "tags": [
+        "单机",
+        "策略"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "poker",
+      "name": "德州扑克",
+      "icon": "🃏",
+      "description": "德州扑克游戏模块预留入口。",
+      "version": "0.1.0",
+      "entry": "games/poker/game.html",
+      "category": "牌类",
+      "tags": [
+        "单机",
+        "牌类"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "mahjong",
+      "name": "麻将",
+      "icon": "🀄",
+      "description": "麻将游戏模块预留入口。",
+      "version": "0.1.0",
+      "entry": "games/mahjong/game.html",
+      "category": "牌类",
+      "tags": [
+        "单机",
+        "牌类"
+      ],
+      "enabled": true
+    }
+  ]
+}

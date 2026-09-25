@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b1020">
+<meta name="description" content="Intochina Game Center - 可扩展网页游戏启动器">
+<title>Intochina Game Center</title>
+<style>
+:root{
+  --bg:#080b14;--panel:rgba(18,24,40,.82);--panel2:rgba(25,32,52,.9);
+  --line:rgba(255,255,255,.09);--text:#eef3ff;--muted:#94a0b8;
+  --accent:#6ea8fe;--accent2:#9b7cff;--danger:#ff647c;
+  --shadow:0 20px 60px rgba(0,0,0,.35);--radius:20px;
+}
+*{box-sizing:border-box} html,body{margin:0;min-height:100%;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;background:radial-gradient(circle at 20% 0%,#17244a 0,#080b14 42%),#080b14;color:var(--text)}
+button,input{font:inherit} button{cursor:pointer}
+.app{min-height:100vh;display:flex;flex-direction:column}
+.topbar{height:72px;padding:0 28px;border-bottom:1px solid var(--line);background:rgba(7,10,18,.72);backdrop-filter:blur(18px);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:20}
+.brand{display:flex;align-items:center;gap:12px}.logo{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 8px 25px rgba(110,168,254,.25);font-size:21px}.brand h1{font-size:18px;margin:0}.brand small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.actions{display:flex;gap:8px}.icon-btn,.primary,.ghost{border:1px solid var(--line);color:var(--text);background:rgba(255,255,255,.05);border-radius:12px;padding:9px 13px}.primary{background:linear-gradient(135deg,#4f8df7,#8265f4);border:0}.icon-btn:hover,.ghost:hover{background:rgba(255,255,255,.1)}
+.layout{width:min(1400px,calc(100% - 32px));margin:0 auto;padding:34px 0 50px;flex:1}
+.hero{padding:36px;border:1px solid var(--line);background:linear-gradient(135deg,rgba(26,37,67,.86),rgba(15,19,33,.86));border-radius:28px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.hero:after{content:"";position:absolute;width:280px;height:280px;border-radius:50%;right:-90px;top:-130px;background:rgba(122,100,255,.18);filter:blur(5px)}
+.hero h2{font-size:clamp(30px,5vw,52px);line-height:1.05;margin:0 0 12px;letter-spacing:-1.5px}.hero p{margin:0;color:var(--muted);max-width:720px;line-height:1.8}.hero-row{display:flex;justify-content:space-between;align-items:end;gap:20px;position:relative;z-index:1}.hero-stat{display:flex;gap:10px;flex-wrap:wrap}.pill{border:1px solid var(--line);padding:8px 11px;border-radius:999px;background:rgba(255,255,255,.04);font-size:12px;color:#b8c3da}
+.section-head{display:flex;align-items:center;justify-content:space-between;margin:28px 4px 14px}.section-head h3{margin:0;font-size:19px}.section-head span{color:var(--muted);font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(235px,1fr));gap:16px}
+.card{border:1px solid var(--line);background:var(--panel);border-radius:var(--radius);padding:20px;min-height:220px;display:flex;flex-direction:column;transition:.2s;box-shadow:0 10px 30px rgba(0,0,0,.12)}.card:hover{transform:translateY(-3px);border-color:rgba(110,168,254,.35);background:var(--panel2)}
+.game-icon{width:58px;height:58px;border-radius:17px;display:grid;place-items:center;background:linear-gradient(145deg,rgba(110,168,254,.18),rgba(155,124,255,.17));font-size:29px;margin-bottom:15px}.card h4{margin:0 0 7px;font-size:18px}.desc{color:var(--muted);font-size:13px;line-height:1.65;flex:1}.meta{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0}.tag{font-size:11px;color:#aeb9d0;padding:4px 8px;border-radius:7px;background:rgba(255,255,255,.055)}.card-actions{display:flex;gap:8px}.card-actions button{flex:1}
+.empty{padding:45px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:18px;grid-column:1/-1}
+.footer{padding:22px;text-align:center;color:#65718a;font-size:12px}
+.modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.68);backdrop-filter:blur(8px);z-index:50;align-items:center;justify-content:center;padding:18px}.modal-backdrop.show{display:flex}.modal{width:min(720px,100%);max-height:90vh;overflow:auto;background:#101626;border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);padding:24px}.modal h3{margin:0 0 16px}.form{display:grid;gap:12px}.field{display:grid;gap:6px}.field label{font-size:12px;color:var(--muted)}.field input,.field textarea{width:100%;border:1px solid var(--line);background:#0b1020;color:var(--text);border-radius:11px;padding:10px 12px;outline:none}.field textarea{min-height:100px;resize:vertical}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}.codebox{background:#080c17;border:1px solid var(--line);padding:13px;border-radius:12px;overflow:auto;font:12px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;color:#c5d2ea;white-space:pre}
+@media(max-width:700px){.topbar{padding:0 15px}.layout{width:min(100% - 20px,1400px);padding-top:18px}.hero{padding:24px}.hero-row{align-items:start;flex-direction:column}.actions .label{display:none}.grid{grid-template-columns:1fr}.hero h2{font-size:36px}}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="topbar">
+  <div class="brand"><div class="logo">🎮</div><div><h1>Intochina Game Center</h1><small>可扩展网页游戏启动器</small></div></div>
+  <div class="actions">
+    <button class="icon-btn" id="refreshBtn">↻ <span class="label">刷新</span></button>
+    <button class="icon-btn" id="saveBtn">💾 <span class="label">存档</span></button>
+    <button class="primary" id="settingsBtn">⚙ 设置</button>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="hero">
+    <div class="hero-row">
+      <div>
+        <h2>Game Center</h2>
+        <p>统一启动、管理和扩展你的网页游戏。游戏本体与启动器相互独立，未来可以由其他 AI 按接口制作并接入新的游戏。</p>
+      </div>
+      <div class="hero-stat">
+        <span class="pill" id="gameCount">0 个游戏</span>
+        <span class="pill">本地存档</span>
+        <span class="pill">模块化接口</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-head"><h3>游戏库</h3><span>点击“开始游戏”启动模块</span></div>
+  <section class="grid" id="gameGrid"></section>
+  <p style="color:#65718a;font-size:12px;margin:12px 4px 0">
+    游戏来源：games.json。新增游戏时无需修改启动器，只需上传游戏目录并更新清单。
+  </p>
+
+  <div class="section-head"><h3>开发者接口</h3><span>预留 20+ 自定义扩展位</span></div>
+  <section class="card" style="min-height:auto">
+    <p class="desc">以后制作独立游戏时，只需复制下方接口模板，在 <code>BUILTIN_GAMES</code> 注册入口即可。也可以直接使用“设置 → 注册自定义游戏”添加。</p>
+    <div class="codebox">games/
+└── my-game/
+    ├── game.html
+    ├── game.js
+    ├── style.css
+    └── assets/
+
+根目录 games.json：
+{
+  "id": "my-game",
+  "name": "我的游戏",
+  "icon": "🎯",
+  "description": "游戏简介",
+  "version": "1.0.0",
+  "entry": "games/my-game/game.html",
+  "category": "自定义",
+  "tags": ["单机", "策略"],
+  "enabled": true
+}</div>
+  </section>
+</main>
+<footer class="footer">Intochina Game Center · Launcher v1.0 · 游戏文件可独立开发、独立更新</footer>
+</div>
+
+<div class="modal-backdrop" id="modal">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<script>
+/* =========================================================
+   GAME CENTER LAUNCHER API
+   ---------------------------------------------------------
+   这里是启动器核心。以后 AI 制作的游戏只需添加一个游戏目录，并在根目录 games.json 注册。
+   20+ 预留接口见 EXTENSION_API。
+   ========================================================= */
+
+const STORAGE_KEY = "intochina_game_center_v1";
+const SETTINGS_KEY = "intochina_launcher_settings_v1";
+
+/* 游戏注册接口：运行时仍可使用；长期扩展推荐 games.json */
+const BUILTIN_GAMES = [
+  {id:"chess",name:"象棋",icon:"♟️",description:"中国象棋游戏模块预留入口。",version:"0.1.0",entry:"games/chess/game.html",category:"棋类",tags:["单机","策略"],enabled:true},
+  {id:"go",name:"围棋",icon:"⚫",description:"围棋游戏模块预留入口。",version:"0.1.0",entry:"games/go/game.html",category:"棋类",tags:["单机","策略"],enabled:true},
+  {id:"jungqi",name:"军棋",icon:"🚩",description:"军棋游戏模块预留入口。",version:"0.1.0",entry:"games/jungqi/game.html",category:"棋类",tags:["单机","策略"],enabled:true},
+  {id:"poker",name:"德州扑克",icon:"🃏",description:"德州扑克游戏模块预留入口。",version:"0.1.0",entry:"games/poker/game.html",category:"牌类",tags:["单机","牌类"],enabled:true},
+  {id:"mahjong",name:"麻将",icon:"🀄",description:"麻将游戏模块预留入口。",version:"0.1.0",entry:"games/mahjong/game.html",category:"牌类",tags:["单机","牌类"],enabled:true}
+];
+
+/*
+  ★ 新架构
+  index.html 不再需要因为新增游戏而修改。
+  启动器会读取根目录 games.json。
+  以后只需：
+    1. 上传 games/xxx/ 游戏文件
+    2. 修改 games.json
+  index.html 永远保持不动。
+*/
+const GAME_MANIFEST_URL = "games.json";
+let remoteGames = [];
+let manifestLoaded = false;
+/* 本地自定义游戏注册区：通过设置添加的模块会保存到浏览器 */
+let customGames = loadJSON(STORAGE_KEY, {customGames:[], saves:{}, settings:{}}).customGames || [];
+
+/* ③ 20+ 自定义接口预留。游戏模块可以通过这些约定与启动器交互。 */
+const EXTENSION_API = {
+  // 01 游戏注册
+  registerGame(game){ if(!game || !game.id) throw new Error("游戏必须有 id"); return addCustomGame(game); },
+  // 02 注销游戏
+  unregisterGame(id){ customGames=customGames.filter(g=>g.id!==id); persist(); render(); },
+  // 03 获取游戏
+  getGame(id){ return allGames().find(g=>g.id===id) || null; },
+  // 04 获取全部游戏
+  getGames(){ return allGames(); },
+  // 05 启动游戏
+  launchGame(id){ return launch(id); },
+  // 06 保存游戏数据
+  saveGame(id,data){ return saveGameData(id,data); },
+  // 07 读取游戏数据
+  loadGame(id){ return loadGameData(id); },
+  // 08 删除游戏存档
+  deleteSave(id){ delete state.saves[id]; persist(); },
+  // 09 清空全部存档
+  clearSaves(){ state.saves={}; persist(); },
+  // 10 获取启动器设置
+  getSettings(){ return state.settings; },
+  // 11 修改启动器设置
+  setSettings(data){ state.settings={...state.settings,...data}; persist(); },
+  // 12 获取当前版本
+  getLauncherVersion(){ return "1.0.0"; },
+  // 13 获取运行环境
+  getEnvironment(){ return {mobile:/Android|iPhone|iPad/i.test(navigator.userAgent), language:navigator.language}; },
+  // 14 事件监听
+  on(event,fn){ window.addEventListener("igc:"+event,fn); },
+  // 15 事件发送
+  emit(event,data){ window.dispatchEvent(new CustomEvent("igc:"+event,{detail:data})); },
+  // 16 打开外部网页游戏
+  open(url){ window.open(url,"_blank","noopener,noreferrer"); },
+  // 17 设置最近游戏
+  setLastGame(id){ state.settings.lastGame=id; persist(); },
+  // 18 获取最近游戏
+  getLastGame(){ return state.settings.lastGame || null; },
+  // 19 导出存档
+  exportSaves(){ downloadJSON("intochina-saves.json",state.saves); },
+  // 20 导入存档
+  importSaves(data){ if(data && typeof data==="object"){ state.saves=data; persist(); } },
+  // 21 导出游戏注册表
+  exportRegistry(){ downloadJSON("intochina-game-registry.json",allGames()); },
+  // 22 游戏是否启用
+  isEnabled(id){ const g=this.getGame(id); return !!g?.enabled; },
+  // 23 设置游戏启用状态
+  setEnabled(id,enabled){ const g=customGames.find(x=>x.id===id); if(g){g.enabled=!!enabled;persist();render();} },
+  // 24 显示通知
+  notify(message){ showToast(message); },
+  // 25 获取 API 对象
+  getAPI(){ return EXTENSION_API; },
+  // 26 重新读取远程 games.json
+  reloadManifest(){ return loadGameManifest(); },
+  // 27 判断远程清单是否成功加载
+  isManifestLoaded(){ return manifestLoaded; },
+  // 28 获取游戏清单地址
+  getManifestURL(){ return GAME_MANIFEST_URL; },
+  // 29 从 manifest 查找游戏
+  findManifestGame(id){ return remoteGames.find(g=>g.id===id) || null; },
+  // 30 刷新启动器界面
+  refreshUI(){ render(); }
+
+};
+
+/* 将 API 暴露给以后独立游戏使用 */
+window.IntochinaGameCenter = EXTENSION_API;
+
+/* 26 游戏 iframe/独立页面可用的消息接口 */
+window.addEventListener("message", event=>{
+  if(!event.data || event.data.source!=="intochina-game") return;
+  const {action,id,data}=event.data;
+  try{
+    if(action==="save") EXTENSION_API.saveGame(id,data);
+    if(action==="load") event.source?.postMessage({source:"intochina-launcher",action:"loadResult",id,data:EXTENSION_API.loadGame(id)},event.origin);
+    if(action==="notify") EXTENSION_API.notify(data);
+  }catch(e){ console.error(e); }
+});
+
+/* ---------- 核心 ---------- */
+let state = loadJSON(STORAGE_KEY,{customGames:[],saves:{},settings:{}});
+
+function loadJSON(key,fallback){
+  try{return JSON.parse(localStorage.getItem(key)) ?? fallback}catch(e){return fallback}
+}
+function persist(){
+  localStorage.setItem(STORAGE_KEY,JSON.stringify({customGames,saves:state.saves,settings:state.settings}));
+}
+function allGames(){
+  const map = new Map();
+  [...BUILTIN_GAMES,...remoteGames,...customGames].forEach(g => {
+    if(g && g.id) map.set(g.id, normalizeGame(g));
+  });
+  return [...map.values()];
+}
+
+function normalizeGame(game){
+  return {
+    id:String(game.id),
+    name:game.name || game.id,
+    icon:game.icon || "🎮",
+    description:game.description || "自定义游戏",
+    version:game.version || "1.0.0",
+    entry:game.entry || "",
+    url:game.url || "",
+    category:game.category || "自定义",
+    tags:Array.isArray(game.tags) ? game.tags : [],
+    enabled:game.enabled !== false
+  };
+}
+
+async function loadGameManifest(){
+  try{
+    const response = await fetch(GAME_MANIFEST_URL + "?t=" + Date.now(), {cache:"no-store"});
+    if(!response.ok) throw new Error("games.json HTTP " + response.status);
+    const data = await response.json();
+    remoteGames = Array.isArray(data) ? data : (Array.isArray(data.games) ? data.games : []);
+    manifestLoaded = true;
+    render();
+    EXTENSION_API.emit("manifestLoaded",{games:remoteGames});
+    showToast("游戏库已同步");
+  }catch(e){
+    manifestLoaded = false;
+    render();
+    showToast("未找到 games.json，已使用本地游戏库");
+    console.warn("Game manifest load failed:",e);
+  }
+}
+
+function saveGameData(id,data){
+  state.saves[id]={data,updatedAt:new Date().toISOString()};
+  persist();
+  showToast("已保存："+id);
+  EXTENSION_API.emit("save", {id,data});
+}
+function loadGameData(id){ return state.saves[id]?.data ?? null; }
+
+function launch(id){
+  const game=EXTENSION_API.getGame(id);
+  if(!game){showToast("找不到游戏模块");return}
+  if(game.enabled===false){showToast("该游戏已停用");return}
+  EXTENSION_API.setLastGame(id);
+  EXTENSION_API.emit("beforeLaunch",game);
+
+  /* 支持未来游戏使用 HTML / URL / PWA 等不同入口 */
+  if(game.entry){
+    window.location.href=game.entry;
+  }else if(game.url){
+    window.location.href=game.url;
+  }else{
+    showToast("该游戏尚未设置入口文件");
+  }
+}
+
+function addCustomGame(game){
+  const normalized={
+    id:String(game.id), name:game.name||game.id, icon:game.icon||"🎮",
+    description:game.description||"自定义游戏", version:game.version||"1.0.0",
+    entry:game.entry||"", url:game.url||"", category:game.category||"自定义",
+    tags:Array.isArray(game.tags)?game.tags:[], enabled:game.enabled!==false
+  };
+  const index=customGames.findIndex(g=>g.id===normalized.id);
+  if(index>=0) customGames[index]=normalized; else customGames.push(normalized);
+  persist(); render(); return normalized;
+}
+
+function render(){
+  const grid=document.getElementById("gameGrid");
+  const games=allGames();
+  document.getElementById("gameCount").textContent=games.length+" 个游戏";
+  grid.innerHTML="";
+  games.forEach(game=>{
+    const card=document.createElement("article");
+    card.className="card";
+    card.innerHTML=`
+      <div class="game-icon">${escapeHTML(game.icon)}</div>
+      <h4>${escapeHTML(game.name)}</h4>
+      <div class="desc">${escapeHTML(game.description)}</div>
+      <div class="meta">
+        <span class="tag">${escapeHTML(game.category||"游戏")}</span>
+        <span class="tag">v${escapeHTML(game.version||"1.0.0")}</span>
+        ${(game.tags||[]).slice(0,3).map(t=>`<span class="tag">${escapeHTML(t)}</span>`).join("")}
+      </div>
+      <div class="card-actions">
+        <button class="primary" ${game.enabled===false?"disabled":""}>▶ 开始游戏</button>
+        <button class="ghost">详情</button>
+      </div>`;
+    card.querySelector(".primary").onclick=()=>launch(game.id);
+    card.querySelector(".ghost").onclick=()=>showGameInfo(game);
+    grid.appendChild(card);
+  });
+}
+
+function showGameInfo(game){
+  openModal(`
+    <h3>${escapeHTML(game.icon)} ${escapeHTML(game.name)}</h3>
+    <p class="desc">${escapeHTML(game.description)}</p>
+    <div class="codebox">${escapeHTML(JSON.stringify(game,null,2))}</div>
+    <div class="modal-actions"><button class="primary" onclick="closeModal()">关闭</button></div>
+  `);
+}
+
+function showSettings(){
+  openModal(`
+    <h3>启动器设置</h3>
+    <div class="form">
+      <div class="field"><label>临时注册自定义游戏（无需修改 index.html）</label><textarea id="gameJSON" placeholder='粘贴 JSON，例如：
+{"id":"my-game","name":"我的游戏","icon":"🎯","entry":"games/my-game/game.html","description":"我的游戏","version":"1.0.0","category":"自定义","tags":["单机"]}'></textarea></div>
+      <div class="modal-actions">
+        <button class="ghost" onclick="EXTENSION_API.exportSaves()">导出存档</button>
+        <button class="ghost" onclick="EXTENSION_API.exportRegistry()">导出注册表</button>
+        <button class="primary" onclick="registerFromUI()">注册并保存</button>
+      </div>
+      <div class="codebox">正式推荐方式：
+1. 上传 games/my-game/
+2. 在根目录 games.json 增加一个对象
+3. 不修改 index.html
+4. 点击“刷新”即可加载
+
+游戏可以完全独立维护自己的 JS、CSS、图片、音频和存档逻辑。</div>
+    </div>
+  `);
+}
+function registerFromUI(){
+  try{
+    const game=JSON.parse(document.getElementById("gameJSON").value);
+    EXTENSION_API.registerGame(game);
+    closeModal(); showToast("游戏已注册");
+  }catch(e){showToast("JSON 格式错误："+e.message)}
+}
+function openModal(html){document.getElementById("modalContent").innerHTML=html;document.getElementById("modal").classList.add("show")}
+function closeModal(){document.getElementById("modal").classList.remove("show")}
+function showToast(msg){
+  let t=document.getElementById("toast");
+  if(!t){t=document.createElement("div");t.id="toast";t.style.cssText="position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#182136;border:1px solid rgba(255,255,255,.12);padding:11px 16px;border-radius:12px;z-index:100;color:#fff;box-shadow:0 10px 30px #0008";document.body.appendChild(t)}
+  t.textContent=msg;t.style.display="block";clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.style.display="none",2200);
+}
+function downloadJSON(name,data){
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();URL.revokeObjectURL(a.href);
+}
+function escapeHTML(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+
+document.getElementById("settingsBtn").onclick=showSettings;
+document.getElementById("refreshBtn").onclick=()=>loadGameManifest();
+document.getElementById("saveBtn").onclick=()=>EXTENSION_API.exportSaves();
+document.getElementById("modal").onclick=e=>{if(e.target.id==="modal")closeModal()};
+
+render();
+loadGameManifest();
+</script>
+</body>
+</html>
