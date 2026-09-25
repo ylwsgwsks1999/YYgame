@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b1020">
+<title>军棋 · Intochina Game Center</title>
+<style>
+:root{
+  --bg:#080b14;--panel:rgba(18,24,40,.82);--panel2:rgba(25,32,52,.9);
+  --line:rgba(255,255,255,.09);--text:#eef3ff;--muted:#94a0b8;
+  --accent:#6ea8fe;--accent2:#9b7cff;--danger:#ff647c;--radius:20px;
+}
+*{box-sizing:border-box} html,body{margin:0;min-height:100%;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;background:radial-gradient(circle at 20% 0%,#17244a 0,#080b14 42%),#080b14;color:var(--text)}
+button{font:inherit;cursor:pointer}
+.app{min-height:100vh;display:flex;flex-direction:column}
+.topbar{padding:0 28px;height:72px;border-bottom:1px solid var(--line);background:rgba(7,10,18,.72);backdrop-filter:blur(18px);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:20;flex-wrap:wrap;gap:10px}
+.brand{display:flex;align-items:center;gap:12px}
+.icon-btn,.primary{border:1px solid var(--line);color:var(--text);background:rgba(255,255,255,.05);border-radius:12px;padding:9px 13px;text-decoration:none;display:inline-flex;align-items:center;gap:6px;font-size:13px}
+.primary{background:linear-gradient(135deg,#4f8df7,#8265f4);border:0}
+.icon-btn:hover{background:rgba(255,255,255,.1)}
+.logo{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;background:linear-gradient(135deg,var(--accent),var(--accent2));font-size:21px}
+.brand h1{font-size:18px;margin:0}.brand small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.layout{width:min(1100px,calc(100% - 32px));margin:0 auto;padding:28px 0 50px;flex:1}
+.status{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 16px;margin-bottom:16px;color:var(--accent);font-size:14px}
+.card{border:1px solid var(--line);background:var(--panel);border-radius:var(--radius);padding:20px;box-shadow:0 10px 30px rgba(0,0,0,.12)}
+.desc{color:var(--muted);font-size:13px;margin-bottom:14px}
+#board{display:grid;grid-template-columns:repeat(4,66px);grid-template-rows:repeat(6,56px);gap:5px;justify-content:center}
+.cell{background:var(--panel2);border:1px solid var(--line);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.piecebox{width:56px;height:44px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:12px;text-align:center}
+.piecebox.mine{background:linear-gradient(135deg,#3a5f8f,#243a5c);color:#dbe6f5}
+.piecebox.enemy{background:linear-gradient(135deg,#8f3a3a,#5c2424);color:#f5dbdb}
+.cell.sel{outline:2px solid var(--accent)}
+.history{margin-top:22px}
+.history h3{margin:0 0 10px;font-size:16px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--accent)}
+.empty{color:var(--muted);padding:16px;text-align:center}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="topbar">
+  <div class="brand">
+    <a class="icon-btn" href="../../index.html">← 返回</a>
+    <div class="logo">🚩</div>
+    <div><h1>军棋（简化版）</h1><small>Intochina Game Center 游戏模块 · v0.2.0</small></div>
+  </div>
+  <div class="actions">
+    <button class="icon-btn" id="loadBtn">☁ 读取战绩</button>
+    <button class="primary" id="resetBtn">↻ 随机布阵/重开</button>
+  </div>
+</header>
+<main class="layout">
+  <div class="desc">简化规则：4×6 棋盘，无铁路与排雷，仅按军衔比拼大小，炸弹可与任意棋子同归于尽，夺得对方军旗即获胜。敌方棋子对你保密。</div>
+  <div class="status" id="status">蓝方(你)先行</div>
+  <div class="card"><div id="board"></div></div>
+  <section class="history card">
+    <h3>对局记录</h3>
+    <div id="historyList"><div class="empty">暂无记录</div></div>
+  </section>
+</main>
+</div>
+<script>
+const GameSDK=(function(){
+  const GAME_ID="jungqi", STORAGE_KEY="intochina_game_center_v1";
+  const inIframe=(function(){try{return window.parent && window.parent!==window;}catch(e){return false;}})();
+  function readState(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||{customGames:[],saves:{},settings:{}};}catch(e){return {customGames:[],saves:{},settings:{}};}}
+  function writeState(st){localStorage.setItem(STORAGE_KEY,JSON.stringify(st));}
+  function save(data){
+    if(inIframe){ window.parent.postMessage({source:"intochina-game",action:"save",id:GAME_ID,data},"*"); }
+    const st=readState(); st.saves=st.saves||{}; st.saves[GAME_ID]={data,updatedAt:new Date().toISOString()}; writeState(st);
+  }
+  function load(cb){
+    if(inIframe){
+      const handler=e=>{ if(e.data&&e.data.source==="intochina-launcher"&&e.data.action==="loadResult"&&e.data.id===GAME_ID){ window.removeEventListener("message",handler); cb(e.data.data);} };
+      window.addEventListener("message",handler);
+      window.parent.postMessage({source:"intochina-game",action:"load",id:GAME_ID},"*");
+      setTimeout(()=>{ const st=readState(); cb(st.saves&&st.saves[GAME_ID]?st.saves[GAME_ID].data:null); },250);
+    } else { const st=readState(); cb(st.saves&&st.saves[GAME_ID]?st.saves[GAME_ID].data:null); }
+  }
+  function notify(msg){ if(inIframe){ window.parent.postMessage({source:"intochina-game",action:"notify",data:msg},"*"); } }
+  return {save,load,notify,GAME_ID};
+})();
+
+let HISTORY=[];
+function renderHistory(){
+  const el=document.getElementById('historyList');
+  if(!HISTORY.length){ el.innerHTML='<div class="empty">暂无记录</div>'; return; }
+  let h='<table><tr><th>结果</th><th>时间</th></tr>';
+  HISTORY.slice(0,30).forEach(r=>{ h+=`<tr><td>${r.result}</td><td>${r.time}</td></tr>`; });
+  h+='</table>'; el.innerHTML=h;
+}
+function pushHistory(result){
+  HISTORY.unshift({result,time:new Date().toLocaleString()}); HISTORY=HISTORY.slice(0,50);
+  GameSDK.save({history:HISTORY}); GameSDK.notify('军棋对局结束：'+result); renderHistory();
+}
+document.getElementById('loadBtn').onclick=()=>GameSDK.load(d=>{ HISTORY=(d&&d.history)||[]; renderHistory(); GameSDK.notify('已读取军棋战绩记录'); });
+GameSDK.load(d=>{ HISTORY=(d&&d.history)||[]; renderHistory(); });
+
+const RANK_NAME={9:'司令',8:'军长',7:'师长',6:'旅长',5:'团长',4:'营长',3:'连长',2:'排长',1:'工兵',B:'炸弹',F:'军旗'};
+let board,turn,sel,over;
+function makeSet(side){
+  const ranks=[9,8,7,6,5,4,3,2,1,'B','B','F'];
+  for(let i=ranks.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [ranks[i],ranks[j]]=[ranks[j],ranks[i]];}
+  return ranks.map(r=>({side,rank:r,known:false}));
+}
+function initBoard(){
+  board=Array.from({length:6},()=>Array(4).fill(null));
+  const enemy=makeSet('enemy'), mine=makeSet('mine');
+  let k=0; for(let r=0;r<3;r++) for(let c=0;c<4;c++) board[r][c]=enemy[k++];
+  k=0; for(let r=3;r<6;r++) for(let c=0;c<4;c++) board[r][c]=mine[k++];
+}
+function power(rank){ if(rank==='F') return -1; if(rank==='B') return 100; return rank; }
+function fight(att,def){
+  if(att.rank==='B'||def.rank==='B'){ if(att.rank==='B'&&def.rank==='B') return 'both'; return att.rank==='B'?'att':'def'; }
+  if(def.rank==='F') return 'att';
+  if(att.rank===def.rank) return 'both';
+  return power(att.rank)>power(def.rank)?'att':'def';
+}
+function render(){
+  const el=document.getElementById('board'); el.innerHTML='';
+  for(let r=0;r<6;r++) for(let c=0;c<4;c++){
+    const cell=document.createElement('div'); cell.className='cell';
+    const p=board[r][c];
+    if(p){
+      const mine=p.side==='mine'; const pv=document.createElement('div');
+      pv.className='piecebox '+(mine?'mine':'enemy');
+      pv.textContent=mine?RANK_NAME[p.rank]:(p.known?RANK_NAME[p.rank]:'？');
+      cell.appendChild(pv);
+    }
+    if(sel&&sel.r===r&&sel.c===c) cell.classList.add('sel');
+    cell.onclick=()=>onClick(r,c);
+    el.appendChild(cell);
+  }
+}
+function adjacent(r1,c1,r2,c2){ return (Math.abs(r1-r2)+Math.abs(c1-c2))===1; }
+function onClick(r,c){
+  if(over||turn!=='mine') return;
+  const p=board[r][c];
+  if(sel){
+    if(sel.r===r&&sel.c===c){ sel=null; render(); return; }
+    const sp=board[sel.r][sel.c];
+    if(adjacent(sel.r,sel.c,r,c)){
+      if(!p){ board[r][c]=sp; board[sel.r][sel.c]=null; sel=null; endTurn(); return; }
+      if(p.side==='enemy'&&sp.rank!=='F'){
+        const res=fight(sp,p); p.known=true;
+        if(res==='att'){ if(p.rank==='F'){ winGame('mine'); return; } board[r][c]=sp; board[sel.r][sel.c]=null; }
+        else if(res==='def'){ board[sel.r][sel.c]=null; }
+        else { board[r][c]=null; board[sel.r][sel.c]=null; }
+        sel=null; endTurn(); return;
+      }
+    }
+    sel=null; render(); return;
+  } else if(p&&p.side==='mine'&&p.rank!=='F'){ sel={r,c}; render(); }
+}
+function endTurn(){
+  render(); if(over) return;
+  turn='enemy'; document.getElementById('status').textContent='红方(电脑)思考中...';
+  setTimeout(aiMove,500);
+}
+function aiMove(){
+  if(over) return;
+  const moves=[];
+  for(let r=0;r<6;r++) for(let c=0;c<4;c++){
+    const p=board[r][c];
+    if(p&&p.side==='enemy'&&p.rank!=='F'){
+      [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].forEach(([nr,nc])=>{
+        if(nr<0||nr>5||nc<0||nc>3) return;
+        const t=board[nr][nc];
+        if(!t) moves.push({r,c,nr,nc,type:'move'});
+        else if(t.side==='mine') moves.push({r,c,nr,nc,type:'fight'});
+      });
+    }
+  }
+  if(!moves.length){ turn='mine'; document.getElementById('status').textContent='轮到你走棋'; return; }
+  const fightMoves=moves.filter(m=>m.type==='fight');
+  const m=(fightMoves.length&&Math.random()<0.6)?fightMoves[Math.floor(Math.random()*fightMoves.length)]:moves[Math.floor(Math.random()*moves.length)];
+  const sp=board[m.r][m.c];
+  if(m.type==='move'){ board[m.nr][m.nc]=sp; board[m.r][m.c]=null; }
+  else {
+    const dp=board[m.nr][m.nc]; const res=fight(sp,dp); dp.known=true;
+    if(res==='att'){ if(dp.rank==='F'){ board[m.nr][m.nc]=sp; board[m.r][m.c]=null; render(); winGame('enemy'); return; } board[m.nr][m.nc]=sp; board[m.r][m.c]=null; }
+    else if(res==='def'){ board[m.r][m.c]=null; }
+    else { board[m.nr][m.nc]=null; board[m.r][m.c]=null; }
+  }
+  turn='mine'; document.getElementById('status').textContent='轮到你走棋'; render();
+}
+function winGame(side){
+  over=true;
+  const txt=side==='mine'?'你获胜！(夺得敌方军旗)':'电脑获胜！(你的军旗被夺)';
+  document.getElementById('status').textContent=txt;
+  pushHistory(txt); render();
+}
+function reset(){ initBoard(); turn='mine'; sel=null; over=false; document.getElementById('status').textContent='蓝方(你)先行，点击己方棋子再点击相邻格移动/进攻'; render(); }
+document.getElementById('resetBtn').onclick=reset;
+reset();
+</script>
+</body>
+</html>

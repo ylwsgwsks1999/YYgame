@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b1020">
+<title>象棋 · Intochina Game Center</title>
+<style>
+:root{
+  --bg:#080b14;--panel:rgba(18,24,40,.82);--panel2:rgba(25,32,52,.9);
+  --line:rgba(255,255,255,.09);--text:#eef3ff;--muted:#94a0b8;
+  --accent:#6ea8fe;--accent2:#9b7cff;--danger:#ff647c;--good:#4cd28a;
+  --shadow:0 20px 60px rgba(0,0,0,.35);--radius:20px;
+}
+*{box-sizing:border-box} html,body{margin:0;min-height:100%;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;background:radial-gradient(circle at 20% 0%,#17244a 0,#080b14 42%),#080b14;color:var(--text)}
+button{font:inherit;cursor:pointer}
+.app{min-height:100vh;display:flex;flex-direction:column}
+.topbar{padding:0 28px;height:72px;border-bottom:1px solid var(--line);background:rgba(7,10,18,.72);backdrop-filter:blur(18px);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:20;flex-wrap:wrap;gap:10px}
+.brand{display:flex;align-items:center;gap:12px}
+.icon-btn,.primary,.ghost{border:1px solid var(--line);color:var(--text);background:rgba(255,255,255,.05);border-radius:12px;padding:9px 13px;text-decoration:none;display:inline-flex;align-items:center;gap:6px;font-size:13px}
+.primary{background:linear-gradient(135deg,#4f8df7,#8265f4);border:0}
+.icon-btn:hover,.ghost:hover{background:rgba(255,255,255,.1)}
+.logo{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;background:linear-gradient(135deg,var(--accent),var(--accent2));font-size:21px}
+.brand h1{font-size:18px;margin:0}.brand small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.layout{width:min(1100px,calc(100% - 32px));margin:0 auto;padding:28px 0 50px;flex:1}
+.status{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 16px;margin-bottom:16px;color:var(--accent);font-size:14px}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.card{border:1px solid var(--line);background:var(--panel);border-radius:var(--radius);padding:20px;box-shadow:0 10px 30px rgba(0,0,0,.12)}
+.board-wrap{overflow-x:auto;padding:10px 0}
+#board{display:grid;grid-template-columns:repeat(9,44px);grid-template-rows:repeat(10,44px);background:#c9a86a;border:4px solid #5a4326;border-radius:10px;margin:0 auto}
+.cell{width:44px;height:44px;display:flex;align-items:center;justify-content:center;position:relative;cursor:pointer}
+.cell::before,.cell::after{content:"";position:absolute;background:#5a4326}
+.cell::before{width:100%;height:1px;top:50%}.cell::after{height:100%;width:1px;left:50%}
+.piece{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:bold;z-index:2;box-shadow:0 2px 5px rgba(0,0,0,.4);border:2px solid #333}
+.piece.red{background:#fbe9d0;color:#c0392b}.piece.black{background:#232733;color:#e8e8e8}
+.cell.sel .piece{outline:3px solid var(--accent);outline-offset:1px}
+.history{margin-top:22px}
+.history h3{margin:0 0 10px;font-size:16px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--accent)}
+.empty{color:var(--muted);padding:16px;text-align:center}
+@media(max-width:600px){.topbar{padding:0 14px}.layout{padding-top:16px}}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="topbar">
+  <div class="brand">
+    <a class="icon-btn" href="../../index.html">← 返回</a>
+    <div class="logo">♟️</div>
+    <div><h1>中国象棋</h1><small>Intochina Game Center 游戏模块 · v0.2.0</small></div>
+  </div>
+  <div class="actions">
+    <button class="icon-btn" id="loadBtn">☁ 读取战绩</button>
+    <button class="primary" id="resetBtn">↻ 重新开局</button>
+  </div>
+</header>
+<main class="layout">
+  <div class="status" id="status">红方先行</div>
+  <div class="card">
+    <div class="board-wrap"><div id="board"></div></div>
+  </div>
+  <section class="history card">
+    <h3>对局记录</h3>
+    <div id="historyList"><div class="empty">暂无记录</div></div>
+  </section>
+</main>
+</div>
+<script>
+/* ===== Intochina GameSDK：与启动器交互的标准接口 ===== */
+const GameSDK=(function(){
+  const GAME_ID="chess", STORAGE_KEY="intochina_game_center_v1";
+  const inIframe=(function(){try{return window.parent && window.parent!==window;}catch(e){return false;}})();
+  function readState(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||{customGames:[],saves:{},settings:{}};}catch(e){return {customGames:[],saves:{},settings:{}};}}
+  function writeState(st){localStorage.setItem(STORAGE_KEY,JSON.stringify(st));}
+  function save(data){
+    if(inIframe){ window.parent.postMessage({source:"intochina-game",action:"save",id:GAME_ID,data},"*"); }
+    const st=readState(); st.saves=st.saves||{}; st.saves[GAME_ID]={data,updatedAt:new Date().toISOString()}; writeState(st);
+  }
+  function load(cb){
+    if(inIframe){
+      const handler=e=>{ if(e.data&&e.data.source==="intochina-launcher"&&e.data.action==="loadResult"&&e.data.id===GAME_ID){ window.removeEventListener("message",handler); cb(e.data.data);} };
+      window.addEventListener("message",handler);
+      window.parent.postMessage({source:"intochina-game",action:"load",id:GAME_ID},"*");
+      setTimeout(()=>{ const st=readState(); cb(st.saves&&st.saves[GAME_ID]?st.saves[GAME_ID].data:null); },250);
+    } else { const st=readState(); cb(st.saves&&st.saves[GAME_ID]?st.saves[GAME_ID].data:null); }
+  }
+  function notify(msg){ if(inIframe){ window.parent.postMessage({source:"intochina-game",action:"notify",data:msg},"*"); } }
+  return {save,load,notify,GAME_ID};
+})();
+
+let HISTORY=[];
+function renderHistory(){
+  const el=document.getElementById('historyList');
+  if(!HISTORY.length){ el.innerHTML='<div class="empty">暂无记录</div>'; return; }
+  let h='<table><tr><th>结果</th><th>时间</th></tr>';
+  HISTORY.slice(0,30).forEach(r=>{ h+=`<tr><td>${r.result}</td><td>${r.time}</td></tr>`; });
+  h+='</table>';
+  el.innerHTML=h;
+}
+function pushHistory(result){
+  HISTORY.unshift({result,time:new Date().toLocaleString()});
+  HISTORY=HISTORY.slice(0,50);
+  GameSDK.save({history:HISTORY});
+  GameSDK.notify('象棋对局结束：'+result);
+  renderHistory();
+}
+document.getElementById('loadBtn').onclick=()=>GameSDK.load(d=>{
+  HISTORY=(d&&d.history)||[]; renderHistory();
+  GameSDK.notify('已读取象棋战绩记录');
+});
+GameSDK.load(d=>{ HISTORY=(d&&d.history)||[]; renderHistory(); });
+
+/* ===== 象棋核心逻辑 ===== */
+const NAMES={ju:'车',ma:'马',xiang_b:'象',xiang_r:'相',shi:'士',shuai:'将',jiang:'帅',pao:'炮',bing:'卒',zu:'兵'};
+let board,turn,sel,over;
+function initBoard(){
+  board=Array.from({length:10},()=>Array(9).fill(null));
+  const back=['ju','ma','xiang','shi','king','shi','xiang','ma','ju'];
+  back.forEach((t,c)=>{
+    board[0][c]={side:'b',t:t==='xiang'?'xiang_b':(t==='king'?'jiang':t)};
+    board[9][c]={side:'r',t:t==='xiang'?'xiang_r':(t==='king'?'shuai':t)};
+  });
+  [1,7].forEach(c=>{board[2][c]={side:'b',t:'pao'}; board[7][c]={side:'r',t:'pao'};});
+  [0,2,4,6,8].forEach(c=>{board[3][c]={side:'b',t:'zu'}; board[6][c]={side:'r',t:'bing'};});
+}
+function inPalace(side,r,c){ if(c<3||c>5) return false; return side==='b'?(r>=0&&r<=2):(r>=7&&r<=9); }
+function clearCount(r1,c1,r2,c2){
+  let n=0;
+  if(r1===r2){const a=Math.min(c1,c2),b=Math.max(c1,c2); for(let c=a+1;c<b;c++) if(board[r1][c]) n++;}
+  else{const a=Math.min(r1,r2),b=Math.max(r1,r2); for(let r=a+1;r<b;r++) if(board[r][c1]) n++;}
+  return n;
+}
+function legal(fr,fc,tr,tc){
+  const p=board[fr][fc]; if(!p) return false;
+  const tgt=board[tr][tc]; if(tgt&&tgt.side===p.side) return false;
+  const dr=tr-fr,dc=tc-fc,adr=Math.abs(dr),adc=Math.abs(dc);
+  switch(p.t){
+    case 'ju': if(dr!==0&&dc!==0) return false; return clearCount(fr,fc,tr,tc)===0;
+    case 'pao': { if(dr!==0&&dc!==0) return false; const cnt=clearCount(fr,fc,tr,tc); return tgt?cnt===1:cnt===0; }
+    case 'ma':
+      if(!((adr===2&&adc===1)||(adr===1&&adc===2))) return false;
+      if(adr===2){ if(board[fr+dr/2][fc]) return false; } else { if(board[fr][fc+dc/2]) return false; }
+      return true;
+    case 'xiang_b': case 'xiang_r':
+      if(adr!==2||adc!==2) return false;
+      if(p.t==='xiang_b'&&tr>4) return false;
+      if(p.t==='xiang_r'&&tr<5) return false;
+      if(board[fr+dr/2][fc+dc/2]) return false;
+      return true;
+    case 'shi': if(adr!==1||adc!==1) return false; return inPalace(p.side,tr,tc);
+    case 'jiang': case 'shuai':
+      if(!((adr===1&&adc===0)||(adr===0&&adc===1))) return false; return inPalace(p.side,tr,tc);
+    case 'zu': case 'bing': {
+      const forward=p.side==='b'?1:-1; const crossed=p.side==='b'?fr>=5:fr<=4;
+      if(dr===forward&&dc===0) return true;
+      if(crossed&&dr===0&&adc===1) return true;
+      return false;
+    }
+  }
+  return false;
+}
+function render(){
+  const el=document.getElementById('board'); el.innerHTML='';
+  for(let r=0;r<10;r++) for(let c=0;c<9;c++){
+    const cell=document.createElement('div'); cell.className='cell';
+    const p=board[r][c];
+    if(p){ const pv=document.createElement('div'); pv.className='piece '+(p.side==='r'?'red':'black'); pv.textContent=NAMES[p.t]; cell.appendChild(pv); }
+    if(sel&&sel.r===r&&sel.c===c) cell.classList.add('sel');
+    cell.onclick=()=>onClick(r,c);
+    el.appendChild(cell);
+  }
+}
+function onClick(r,c){
+  if(over) return;
+  const p=board[r][c];
+  if(sel){
+    if(sel.r===r&&sel.c===c){ sel=null; render(); return; }
+    if(legal(sel.r,sel.c,r,c)){
+      const captured=board[r][c];
+      board[r][c]=board[sel.r][sel.c]; board[sel.r][sel.c]=null; sel=null;
+      if(captured&&(captured.t==='jiang'||captured.t==='shuai')){
+        over=true;
+        const winner=turn==='r'?'红方':'黑方';
+        document.getElementById('status').textContent=winner+' 获胜！';
+        pushHistory(winner+'获胜');
+        render(); return;
+      }
+      turn=turn==='r'?'b':'r';
+      document.getElementById('status').textContent=(turn==='r'?'红方':'黑方')+'走棋';
+      render(); return;
+    } else if(p&&p.side===turn){ sel={r,c}; render(); return; }
+    else { sel=null; render(); return; }
+  } else if(p&&p.side===turn){ sel={r,c}; render(); }
+}
+function reset(){ initBoard(); turn='r'; sel=null; over=false; document.getElementById('status').textContent='红方先行'; render(); }
+document.getElementById('resetBtn').onclick=reset;
+reset();
+</script>
+</body>
+</html>

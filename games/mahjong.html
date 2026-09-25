@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b1020">
+<title>麻将 · Intochina Game Center</title>
+<style>
+:root{
+  --bg:#080b14;--panel:rgba(18,24,40,.82);--panel2:rgba(25,32,52,.9);
+  --line:rgba(255,255,255,.09);--text:#eef3ff;--muted:#94a0b8;
+  --accent:#6ea8fe;--accent2:#9b7cff;--danger:#ff647c;--radius:20px;
+}
+*{box-sizing:border-box} html,body{margin:0;min-height:100%;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;background:radial-gradient(circle at 20% 0%,#17244a 0,#080b14 42%),#080b14;color:var(--text)}
+button{font:inherit;cursor:pointer}
+.app{min-height:100vh;display:flex;flex-direction:column}
+.topbar{padding:0 28px;height:72px;border-bottom:1px solid var(--line);background:rgba(7,10,18,.72);backdrop-filter:blur(18px);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:20;flex-wrap:wrap;gap:10px}
+.brand{display:flex;align-items:center;gap:12px}
+.icon-btn,.primary,.danger{border:1px solid var(--line);color:var(--text);background:rgba(255,255,255,.05);border-radius:12px;padding:9px 13px;text-decoration:none;display:inline-flex;align-items:center;gap:6px;font-size:13px}
+.primary{background:linear-gradient(135deg,#4f8df7,#8265f4);border:0}
+.danger{border-color:var(--danger);color:var(--danger);display:none}
+.icon-btn:hover{background:rgba(255,255,255,.1)}
+.logo{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;background:linear-gradient(135deg,var(--accent),var(--accent2));font-size:21px}
+.brand h1{font-size:18px;margin:0}.brand small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.layout{width:min(900px,calc(100% - 32px));margin:0 auto;padding:28px 0 50px;flex:1}
+.status{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 16px;margin-bottom:16px;color:var(--accent);font-size:14px}
+.card{border:1px solid var(--line);background:var(--panel);border-radius:var(--radius);padding:20px;box-shadow:0 10px 30px rgba(0,0,0,.12)}
+.desc{color:var(--muted);font-size:13px;margin-bottom:14px}
+.mj-hand{display:flex;gap:4px;flex-wrap:wrap}
+.mj-tile{width:38px;height:52px;background:linear-gradient(180deg,#fdf6e3,#e9dcb5);border:1px solid #a88a4a;border-radius:5px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:13px;color:#222;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,.3)}
+.mj-tile.m{color:#c0392b} .mj-tile.t{color:#1e6f46} .mj-tile.s{color:#1f4e8c}
+.mj-tile.sel{transform:translateY(-8px);outline:2px solid var(--accent)}
+.mj-row{margin:10px 0}
+.mj-label{font-size:12px;color:var(--muted);margin-bottom:4px}
+.history{margin-top:22px}
+.history h3{margin:0 0 10px;font-size:16px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--accent)}
+.empty{color:var(--muted);padding:16px;text-align:center}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="topbar">
+  <div class="brand">
+    <a class="icon-btn" href="../../index.html">← 返回</a>
+    <div class="logo">🀄</div>
+    <div><h1>麻将（简化版·万筒条）</h1><small>Intochina Game Center 游戏模块 · v0.2.0</small></div>
+  </div>
+  <div class="actions">
+    <button class="icon-btn" id="loadBtn">☁ 读取战绩</button>
+    <button class="danger" id="winBtn">胡牌！</button>
+    <button class="primary" id="resetBtn">↻ 重新开局</button>
+  </div>
+</header>
+<main class="layout">
+  <div class="desc">仅使用万/筒/条(不含字牌)。凑成 4 组顺子/刻子 + 1 对将即可"胡牌"。点击手牌选中，再点一次打出。</div>
+  <div class="status" id="status">点击"重新开局"发牌</div>
+  <div class="card"><div id="table"></div></div>
+  <section class="history card">
+    <h3>对局记录</h3>
+    <div id="historyList"><div class="empty">暂无记录</div></div>
+  </section>
+</main>
+</div>
+<script>
+const GameSDK=(function(){
+  const GAME_ID="mahjong", STORAGE_KEY="intochina_game_center_v1";
+  const inIframe=(function(){try{return window.parent && window.parent!==window;}catch(e){return false;}})();
+  function readState(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||{customGames:[],saves:{},settings:{}};}catch(e){return {customGames:[],saves:{},settings:{}};}}
+  function writeState(st){localStorage.setItem(STORAGE_KEY,JSON.stringify(st));}
+  function save(data){
+    if(inIframe){ window.parent.postMessage({source:"intochina-game",action:"save",id:GAME_ID,data},"*"); }
+    const st=readState(); st.saves=st.saves||{}; st.saves[GAME_ID]={data,updatedAt:new Date().toISOString()}; writeState(st);
+  }
+  function load(cb){
+    if(inIframe){
+      const handler=e=>{ if(e.data&&e.data.source==="intochina-launcher"&&e.data.action==="loadResult"&&e.data.id===GAME_ID){ window.removeEventListener("message",handler); cb(e.data.data);} };
+      window.addEventListener("message",handler);
+      window.parent.postMessage({source:"intochina-game",action:"load",id:GAME_ID},"*");
+      setTimeout(()=>{ const st=readState(); cb(st.saves&&st.saves[GAME_ID]?st.saves[GAME_ID].data:null); },250);
+    } else { const st=readState(); cb(st.saves&&st.saves[GAME_ID]?st.saves[GAME_ID].data:null); }
+  }
+  function notify(msg){ if(inIframe){ window.parent.postMessage({source:"intochina-game",action:"notify",data:msg},"*"); } }
+  return {save,load,notify,GAME_ID};
+})();
+
+let HISTORY=[];
+function renderHistory(){
+  const el=document.getElementById('historyList');
+  if(!HISTORY.length){ el.innerHTML='<div class="empty">暂无记录</div>'; return; }
+  let h='<table><tr><th>结果</th><th>时间</th></tr>';
+  HISTORY.slice(0,30).forEach(r=>{ h+=`<tr><td>${r.result}</td><td>${r.time}</td></tr>`; });
+  h+='</table>'; el.innerHTML=h;
+}
+function pushHistory(result){
+  HISTORY.unshift({result,time:new Date().toLocaleString()}); HISTORY=HISTORY.slice(0,50);
+  GameSDK.save({history:HISTORY}); GameSDK.notify('麻将：'+result); renderHistory();
+}
+document.getElementById('loadBtn').onclick=()=>GameSDK.load(d=>{ HISTORY=(d&&d.history)||[]; renderHistory(); GameSDK.notify('已读取麻将战绩记录'); });
+GameSDK.load(d=>{ HISTORY=(d&&d.history)||[]; renderHistory(); });
+
+const SUITS=['m','t','s']; const SUIT_NAME={m:'万',t:'筒',s:'条'};
+let wall,hands,discards,turn,selIdx,over;
+function tileId(suit,rank){ return SUITS.indexOf(suit)*9+(rank-1); }
+function tileFromId(id){ const suit=SUITS[Math.floor(id/9)]; const rank=(id%9)+1; return {suit,rank,id}; }
+function newWall(){
+  const w=[]; for(const s of SUITS) for(let r=1;r<=9;r++) for(let k=0;k<4;k++) w.push(tileId(s,r));
+  for(let i=w.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [w[i],w[j]]=[w[j],w[i]];}
+  return w;
+}
+function sortHand(h){ h.sort((a,b)=>a-b); }
+function reset(){
+  wall=newWall(); discards=[[],[],[],[]]; over=false; selIdx=null;
+  hands=[[],[],[],[]];
+  for(let k=0;k<13;k++) for(let p=0;p<4;p++) hands[p].push(wall.pop());
+  hands.forEach(sortHand);
+  turn=0;
+  document.getElementById('winBtn').style.display='none';
+  drawFor(0);
+  document.getElementById('status').textContent='轮到你，选择一张牌打出（若可胡牌，"胡牌"按钮会出现）';
+  render();
+}
+function counts(hand){ const c=Array(27).fill(0); hand.forEach(id=>c[id]++); return c; }
+function decompose(c){
+  const i=c.findIndex(v=>v>0);
+  if(i===-1) return true;
+  if(c[i]>=3){ c[i]-=3; if(decompose(c)){c[i]+=3; return true;} c[i]+=3; }
+  const suit=Math.floor(i/9), rank=i%9;
+  if(rank<=6&&c[i+1]>0&&c[i+2]>0&&Math.floor((i+2)/9)===suit){
+    c[i]--; c[i+1]--; c[i+2]--;
+    if(decompose(c)){ c[i]++; c[i+1]++; c[i+2]++; return true; }
+    c[i]++; c[i+1]++; c[i+2]++;
+  }
+  return false;
+}
+function canWin(hand){
+  if(hand.length!==14) return false;
+  const c=counts(hand);
+  for(let i=0;i<27;i++){
+    if(c[i]>=2){ c[i]-=2; if(decompose(c.slice())) return true; c[i]+=2; }
+  }
+  return false;
+}
+function drawFor(p){
+  if(!wall.length){ over=true; document.getElementById('status').textContent='牌墙已摸完，流局'; pushHistory('流局'); return; }
+  const t=wall.pop(); hands[p].push(t); sortHand(hands[p]);
+  if(p===0&&canWin(hands[0])) document.getElementById('winBtn').style.display='inline-flex';
+}
+function declareWin(){
+  if(!canWin(hands[0])) return;
+  over=true;
+  document.getElementById('status').textContent='恭喜你胡牌！';
+  pushHistory('你胡牌获胜');
+  document.getElementById('winBtn').style.display='none';
+  render();
+}
+function playerDiscard(idx){
+  if(over||turn!==0) return;
+  const id=hands[0].splice(idx,1)[0];
+  discards[0].push(id); selIdx=null;
+  document.getElementById('winBtn').style.display='none';
+  render();
+  turn=1; document.getElementById('status').textContent='电脑们行动中...';
+  setTimeout(aiTurn,500);
+}
+function aiTurn(){
+  if(over) return;
+  const p=turn;
+  if(p>=1&&p<=3){
+    drawFor(p);
+    if(!over){ const idx=Math.floor(Math.random()*hands[p].length); const id=hands[p].splice(idx,1)[0]; discards[p].push(id); }
+    render();
+    if(over) return;
+    turn++;
+    if(turn>3){ turn=0; drawFor(0); render(); if(!over) document.getElementById('status').textContent='轮到你，选择一张牌打出'; }
+    else { setTimeout(aiTurn,500); }
+  }
+}
+function tileLabel(id){ const t=tileFromId(id); return t.rank+SUIT_NAME[t.suit]; }
+function tileHtml(id,clickable,idx){
+  const t=tileFromId(id);
+  const cls=t.suit==='m'?'m':(t.suit==='t'?'t':'s');
+  const selCls=(clickable&&selIdx===idx)?' sel':'';
+  return `<div class="mj-tile ${cls}${selCls}" ${clickable?`onclick="clickTile(${idx})"`:''}>${t.rank}${SUIT_NAME[t.suit]}</div>`;
+}
+function render(){
+  const el=document.getElementById('table');
+  let h='';
+  h+=`<div class="mj-row"><div class="mj-label">电脑A 手牌数:${hands[1].length} | 弃牌: ${discards[1].map(tileLabel).join(' ')}</div></div>`;
+  h+=`<div class="mj-row"><div class="mj-label">电脑B 手牌数:${hands[2].length} | 弃牌: ${discards[2].map(tileLabel).join(' ')}</div></div>`;
+  h+=`<div class="mj-row"><div class="mj-label">电脑C 手牌数:${hands[3].length} | 弃牌: ${discards[3].map(tileLabel).join(' ')}</div></div>`;
+  h+=`<div class="mj-row"><div class="mj-label">你的弃牌</div><div class="mj-hand">${discards[0].map(id=>tileHtml(id,false)).join('')}</div></div>`;
+  h+=`<div class="mj-row"><div class="mj-label">你的手牌 (${hands[0].length}张)</div><div class="mj-hand">`;
+  hands[0].forEach((id,idx)=>{ h+=tileHtml(id,true,idx); });
+  h+=`</div></div>`;
+  el.innerHTML=h;
+}
+function clickTile(idx){
+  if(over||turn!==0) return;
+  if(selIdx===idx){ playerDiscard(idx); return; }
+  selIdx=idx; render();
+}
+document.getElementById('resetBtn').onclick=reset;
+document.getElementById('winBtn').onclick=declareWin;
+reset();
+</script>
+</body>
+</html>

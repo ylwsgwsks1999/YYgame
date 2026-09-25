@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b1020">
+<title>德州扑克 · Intochina Game Center</title>
+<style>
+:root{
+  --bg:#080b14;--panel:rgba(18,24,40,.82);--panel2:rgba(25,32,52,.9);
+  --line:rgba(255,255,255,.09);--text:#eef3ff;--muted:#94a0b8;
+  --accent:#6ea8fe;--accent2:#9b7cff;--danger:#ff647c;--radius:20px;
+}
+*{box-sizing:border-box} html,body{margin:0;min-height:100%;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;background:radial-gradient(circle at 20% 0%,#17244a 0,#080b14 42%),#080b14;color:var(--text)}
+button{font:inherit;cursor:pointer}
+.app{min-height:100vh;display:flex;flex-direction:column}
+.topbar{padding:0 28px;height:72px;border-bottom:1px solid var(--line);background:rgba(7,10,18,.72);backdrop-filter:blur(18px);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:20;flex-wrap:wrap;gap:10px}
+.brand{display:flex;align-items:center;gap:12px}
+.icon-btn,.primary,.danger{border:1px solid var(--line);color:var(--text);background:rgba(255,255,255,.05);border-radius:12px;padding:9px 13px;text-decoration:none;display:inline-flex;align-items:center;gap:6px;font-size:13px}
+.primary{background:linear-gradient(135deg,#4f8df7,#8265f4);border:0}
+.danger{border-color:var(--danger);color:var(--danger)}
+.icon-btn:hover{background:rgba(255,255,255,.1)}
+.logo{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;background:linear-gradient(135deg,var(--accent),var(--accent2));font-size:21px}
+.brand h1{font-size:18px;margin:0}.brand small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.layout{width:min(900px,calc(100% - 32px));margin:0 auto;padding:28px 0 50px;flex:1}
+.status{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 16px;margin-bottom:16px;color:var(--accent);font-size:14px}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}
+.card{border:1px solid var(--line);background:var(--panel);border-radius:var(--radius);padding:20px;box-shadow:0 10px 30px rgba(0,0,0,.12)}
+.pk-table{background:radial-gradient(circle,#1d5c3e,#0e3524);border:8px solid #3b2415;border-radius:120px;padding:30px 20px}
+.pk-seat{text-align:center;margin-bottom:12px}
+.pk-cards{display:flex;gap:6px;justify-content:center;margin:6px 0}
+.pcard{width:44px;height:62px;background:#fff;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:bold;font-size:15px;color:#222;box-shadow:0 2px 5px rgba(0,0,0,.4)}
+.pcard.red{color:#c0392b}
+.pcard.back{background:repeating-linear-gradient(45deg,#3457a6,#3457a6 4px,#294a94 4px,#294a94 8px)}
+.community{display:flex;gap:8px;justify-content:center;margin:16px 0}
+.pk-info{font-size:13px;color:var(--muted);text-align:center}
+.history{margin-top:22px}
+.history h3{margin:0 0 10px;font-size:16px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--accent)}
+.empty{color:var(--muted);padding:16px;text-align:center}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="topbar">
+  <div class="brand">
+    <a class="icon-btn" href="../../index.html">← 返回</a>
+    <div class="logo">🃏</div>
+    <div><h1>德州扑克</h1><small>Intochina Game Center 游戏模块 · v0.2.0</small></div>
+  </div>
+  <div class="actions">
+    <button class="icon-btn" id="loadBtn">☁ 读取战绩</button>
+    <button class="primary" id="newBtn">开始新一局</button>
+  </div>
+</header>
+<main class="layout">
+  <div class="status" id="status">点击"开始新一局"发牌（你 vs 2 名电脑，起始筹码 1000）</div>
+  <div class="card"><div class="pk-table" id="table"></div></div>
+  <div class="toolbar" id="actionsBar"></div>
+  <section class="history card">
+    <h3>对局记录</h3>
+    <div id="historyList"><div class="empty">暂无记录</div></div>
+  </section>
+</main>
+</div>
+<script>
+const GameSDK=(function(){
+  const GAME_ID="poker", STORAGE_KEY="intochina_game_center_v1";
+  const inIframe=(function(){try{return window.parent && window.parent!==window;}catch(e){return false;}})();
+  function readState(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||{customGames:[],saves:{},settings:{}};}catch(e){return {customGames:[],saves:{},settings:{}};}}
+  function writeState(st){localStorage.setItem(STORAGE_KEY,JSON.stringify(st));}
+  function save(data){
+    if(inIframe){ window.parent.postMessage({source:"intochina-game",action:"save",id:GAME_ID,data},"*"); }
+    const st=readState(); st.saves=st.saves||{}; st.saves[GAME_ID]={data,updatedAt:new Date().toISOString()}; writeState(st);
+  }
+  function load(cb){
+    if(inIframe){
+      const handler=e=>{ if(e.data&&e.data.source==="intochina-launcher"&&e.data.action==="loadResult"&&e.data.id===GAME_ID){ window.removeEventListener("message",handler); cb(e.data.data);} };
+      window.addEventListener("message",handler);
+      window.parent.postMessage({source:"intochina-game",action:"load",id:GAME_ID},"*");
+      setTimeout(()=>{ const st=readState(); cb(st.saves&&st.saves[GAME_ID]?st.saves[GAME_ID].data:null); },250);
+    } else { const st=readState(); cb(st.saves&&st.saves[GAME_ID]?st.saves[GAME_ID].data:null); }
+  }
+  function notify(msg){ if(inIframe){ window.parent.postMessage({source:"intochina-game",action:"notify",data:msg},"*"); } }
+  return {save,load,notify,GAME_ID};
+})();
+
+let HISTORY=[], SAVED_CHIPS=null;
+function renderHistory(){
+  const el=document.getElementById('historyList');
+  if(!HISTORY.length){ el.innerHTML='<div class="empty">暂无记录</div>'; return; }
+  let h='<table><tr><th>结果</th><th>时间</th></tr>';
+  HISTORY.slice(0,30).forEach(r=>{ h+=`<tr><td>${r.result}</td><td>${r.time}</td></tr>`; });
+  h+='</table>'; el.innerHTML=h;
+}
+function pushHistory(result){
+  HISTORY.unshift({result,time:new Date().toLocaleString()}); HISTORY=HISTORY.slice(0,50);
+  GameSDK.save({history:HISTORY,chips:players?players[0].chips:1000});
+  GameSDK.notify('德州扑克：'+result); renderHistory();
+}
+document.getElementById('loadBtn').onclick=()=>GameSDK.load(d=>{
+  HISTORY=(d&&d.history)||[]; SAVED_CHIPS=(d&&d.chips)||null; renderHistory();
+  GameSDK.notify('已读取德州扑克战绩记录，下一局将使用存档筹码：'+(SAVED_CHIPS||1000));
+});
+GameSDK.load(d=>{ HISTORY=(d&&d.history)||[]; SAVED_CHIPS=(d&&d.chips)||null; renderHistory(); });
+
+const SUITS=['S','H','D','C'], SUIT_CH={S:'♠',H:'♥',D:'♦',C:'♣'};
+const RANK_CH={11:'J',12:'Q',13:'K',14:'A'};
+let deck,players,community,pot,stage,currentBet,over;
+function newDeck(){
+  const d=[]; for(const s of SUITS) for(let r=2;r<=14;r++) d.push({r,s});
+  for(let i=d.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [d[i],d[j]]=[d[j],d[i]];}
+  return d;
+}
+function cardLabel(c){ return c.r<=10?c.r:RANK_CH[c.r]; }
+function cardHtml(c,hidden){
+  if(hidden) return `<div class="pcard back"></div>`;
+  const red=c.s==='H'||c.s==='D';
+  return `<div class="pcard ${red?'red':''}"><div>${cardLabel(c)}</div><div>${SUIT_CH[c.s]}</div></div>`;
+}
+function combos(arr,k){
+  const res=[];
+  (function rec(start,cur){ if(cur.length===k){res.push(cur.slice()); return;} for(let i=start;i<arr.length;i++){cur.push(arr[i]); rec(i+1,cur); cur.pop();} })(0,[]);
+  return res;
+}
+function evaluate5(cards){
+  const ranks=cards.map(c=>c.r).sort((a,b)=>b-a);
+  const suits=cards.map(c=>c.s);
+  const flush=suits.every(s=>s===suits[0]);
+  const uniq=[...new Set(ranks)];
+  let straightHigh=0;
+  if(uniq.length===5){
+    if(uniq[0]-uniq[4]===4) straightHigh=uniq[0];
+    else if(JSON.stringify(uniq)===JSON.stringify([14,5,4,3,2])) straightHigh=5;
+  }
+  const counts={}; ranks.forEach(r=>counts[r]=(counts[r]||0)+1);
+  const groups=Object.entries(counts).map(([r,c])=>({r:+r,c})).sort((a,b)=>b.c-a.c||b.r-a.r);
+  if(flush&&straightHigh) return [8,straightHigh];
+  if(groups[0].c===4) return [7,groups[0].r,groups[1].r];
+  if(groups[0].c===3&&groups[1]&&groups[1].c>=2) return [6,groups[0].r,groups[1].r];
+  if(flush) return [5,...ranks];
+  if(straightHigh) return [4,straightHigh];
+  if(groups[0].c===3) return [3,groups[0].r,...groups.slice(1).map(g=>g.r)];
+  if(groups[0].c===2&&groups[1]&&groups[1].c===2) return [2,groups[0].r,groups[1].r,groups[2].r];
+  if(groups[0].c===2) return [1,groups[0].r,...groups.slice(1).map(g=>g.r)];
+  return [0,...ranks];
+}
+function cmp(a,b){ for(let i=0;i<Math.max(a.length,b.length);i++){ const x=a[i]||0,y=b[i]||0; if(x!==y) return x-y; } return 0; }
+function best7(cards7){ let best=null; combos(cards7,5).forEach(c=>{ const sc=evaluate5(c); if(!best||cmp(sc,best)>0) best=sc; }); return best; }
+const HAND_NAMES=['高牌','一对','两对','三条','顺子','同花','葫芦','四条','同花顺'];
+
+function newHand(){
+  deck=newDeck(); community=[]; pot=0; stage=0; over=false;
+  if(!players){
+    const startChips=SAVED_CHIPS||1000;
+    players=[
+      {name:'你',isYou:true,chips:startChips,hole:[],folded:false,bet:0},
+      {name:'电脑A',chips:1000,hole:[],folded:false,bet:0},
+      {name:'电脑B',chips:1000,hole:[],folded:false,bet:0},
+    ];
+  }
+  players.forEach(p=>{ p.hole=[deck.pop(),deck.pop()]; p.folded=false; p.bet=0; });
+  currentBet=20;
+  players[0].chips-=10; pot+=10; players[0].bet=10;
+  players[1].chips-=20; pot+=20; players[1].bet=20;
+  render(); document.getElementById('status').textContent='已发底牌，翻牌前下注轮'; showActions();
+}
+function aiAct(p){
+  const r=Math.random();
+  if(r<0.15&&currentBet>p.bet+40){ p.folded=true; return p.name+' 弃牌'; }
+  if(r<0.75){ const need=currentBet-p.bet; const pay=Math.min(need,p.chips); p.chips-=pay; pot+=pay; p.bet+=pay; return p.name+' 跟注'; }
+  const raise=currentBet+40; const need=raise-p.bet; const pay=Math.min(need,p.chips); p.chips-=pay; pot+=pay; p.bet+=pay; currentBet=Math.max(currentBet,p.bet); return p.name+' 加注到'+currentBet;
+}
+function nextStage(){
+  stage++; players.forEach(p=>p.bet=0); currentBet=0;
+  if(stage===1) community.push(deck.pop(),deck.pop(),deck.pop());
+  else if(stage===2||stage===3) community.push(deck.pop());
+  else { showdown(); return; }
+  render(); document.getElementById('status').textContent=['','翻牌圈','转牌圈','河牌圈'][stage]+' 下注轮'; showActions();
+}
+function showdown(){
+  over=true;
+  const alive=players.filter(p=>!p.folded);
+  let winner;
+  if(alive.length===1){ winner=alive[0]; }
+  else{ let bestScore=null; alive.forEach(p=>{ const sc=best7([...p.hole,...community]); p._score=sc; if(!bestScore||cmp(sc,bestScore)>0){bestScore=sc; winner=p;} }); }
+  winner.chips+=pot;
+  const txt=winner.name+' 赢得彩池 '+pot+' 筹码'+(winner._score?'（'+HAND_NAMES[winner._score[0]]+'）':'（其余玩家弃牌）');
+  document.getElementById('status').textContent=txt;
+  pushHistory(txt+' | 你的筹码:'+players[0].chips);
+  render(true);
+  document.getElementById('actionsBar').innerHTML='';
+}
+function showActions(){
+  const you=players[0];
+  if(you.folded||over){ document.getElementById('actionsBar').innerHTML=''; return; }
+  const need=currentBet-you.bet;
+  document.getElementById('actionsBar').innerHTML=`
+    <button class="icon-btn" onclick="act('call')">${need>0?'跟注 '+need:'过牌'}</button>
+    <button class="icon-btn" onclick="act('raise')">加注 +40</button>
+    <button class="danger" onclick="act('fold')">弃牌</button>`;
+}
+function act(type){
+  const you=players[0];
+  if(type==='fold'){ you.folded=true; }
+  else if(type==='call'){ const need=currentBet-you.bet; const pay=Math.min(need,you.chips); you.chips-=pay; pot+=pay; you.bet+=pay; }
+  else if(type==='raise'){ const raise=currentBet+40; const need=raise-you.bet; const pay=Math.min(need,you.chips); you.chips-=pay; pot+=pay; you.bet+=pay; currentBet=Math.max(currentBet,you.bet); }
+  let log=[]; for(let i=1;i<players.length;i++){ if(!players[i].folded) log.push(aiAct(players[i])); }
+  const aliveCount=players.filter(p=>!p.folded).length;
+  render(); document.getElementById('status').textContent=log.join(' / ');
+  if(aliveCount<=1){ setTimeout(showdown,600); return; }
+  setTimeout(nextStage,700);
+}
+function render(reveal){
+  const el=document.getElementById('table');
+  let h=`<div class="pk-info">彩池: ${pot}</div><div class="community">`;
+  community.forEach(c=>h+=cardHtml(c,false));
+  for(let i=community.length;i<5;i++) h+=`<div class="pcard back" style="opacity:.25"></div>`;
+  h+=`</div>`;
+  players.forEach(p=>{
+    h+=`<div class="pk-seat"><b>${p.name}</b> ${p.folded?'(已弃牌)':''} · 筹码:${p.chips} · 下注:${p.bet}<div class="pk-cards">`;
+    p.hole.forEach(c=>h+=cardHtml(c, !(p.isYou||reveal)));
+    h+=`</div></div>`;
+  });
+  el.innerHTML=h;
+}
+document.getElementById('newBtn').onclick=newHand;
+render0();
+function render0(){ document.getElementById('table').innerHTML='<div class="pk-info">尚未开局</div>'; }
+</script>
+</body>
+</html>

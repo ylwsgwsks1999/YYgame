@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b1020">
+<title>围棋 · Intochina Game Center</title>
+<style>
+:root{
+  --bg:#080b14;--panel:rgba(18,24,40,.82);--panel2:rgba(25,32,52,.9);
+  --line:rgba(255,255,255,.09);--text:#eef3ff;--muted:#94a0b8;
+  --accent:#6ea8fe;--accent2:#9b7cff;--danger:#ff647c;--radius:20px;
+}
+*{box-sizing:border-box} html,body{margin:0;min-height:100%;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;background:radial-gradient(circle at 20% 0%,#17244a 0,#080b14 42%),#080b14;color:var(--text)}
+button{font:inherit;cursor:pointer}
+.app{min-height:100vh;display:flex;flex-direction:column}
+.topbar{padding:0 28px;height:72px;border-bottom:1px solid var(--line);background:rgba(7,10,18,.72);backdrop-filter:blur(18px);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:20;flex-wrap:wrap;gap:10px}
+.brand{display:flex;align-items:center;gap:12px}
+.icon-btn,.primary{border:1px solid var(--line);color:var(--text);background:rgba(255,255,255,.05);border-radius:12px;padding:9px 13px;text-decoration:none;display:inline-flex;align-items:center;gap:6px;font-size:13px}
+.primary{background:linear-gradient(135deg,#4f8df7,#8265f4);border:0}
+.icon-btn:hover{background:rgba(255,255,255,.1)}
+.logo{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;background:linear-gradient(135deg,var(--accent),var(--accent2));font-size:21px}
+.brand h1{font-size:18px;margin:0}.brand small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.layout{width:min(1100px,calc(100% - 32px));margin:0 auto;padding:28px 0 50px;flex:1}
+.status{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 16px;margin-bottom:16px;color:var(--accent);font-size:14px}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.card{border:1px solid var(--line);background:var(--panel);border-radius:var(--radius);padding:20px;box-shadow:0 10px 30px rgba(0,0,0,.12)}
+.board-wrap{overflow-x:auto;padding:10px 0;display:flex;justify-content:center}
+#board{display:grid;background:#dcb56f;border:4px solid #5a4326;border-radius:10px}
+.cell{width:36px;height:36px;position:relative;cursor:pointer}
+.cell::before,.cell::after{content:"";position:absolute;background:#5a4326}
+.cell::before{width:100%;height:1px;top:50%}.cell::after{height:100%;width:1px;left:50%}
+.stone{position:absolute;width:30px;height:30px;border-radius:50%;top:3px;left:3px;z-index:2;box-shadow:0 2px 4px rgba(0,0,0,.5)}
+.stone.black{background:radial-gradient(circle at 35% 30%,#666,#000)}
+.stone.white{background:radial-gradient(circle at 35% 30%,#fff,#ccc)}
+.history{margin-top:22px}
+.history h3{margin:0 0 10px;font-size:16px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--accent)}
+.empty{color:var(--muted);padding:16px;text-align:center}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="topbar">
+  <div class="brand">
+    <a class="icon-btn" href="../../index.html">← 返回</a>
+    <div class="logo">⚫</div>
+    <div><h1>围棋</h1><small>Intochina Game Center 游戏模块 · v0.2.0（9路盘）</small></div>
+  </div>
+  <div class="actions">
+    <button class="icon-btn" id="loadBtn">☁ 读取战绩</button>
+    <button class="icon-btn" id="passBtn">跳过(Pass)</button>
+    <button class="primary" id="resetBtn">↻ 重新开局</button>
+  </div>
+</header>
+<main class="layout">
+  <div class="status" id="status">黑方先行</div>
+  <div class="card"><div class="board-wrap"><div id="board"></div></div></div>
+  <section class="history card">
+    <h3>对局记录</h3>
+    <div id="historyList"><div class="empty">暂无记录</div></div>
+  </section>
+</main>
+</div>
+<script>
+const GameSDK=(function(){
+  const GAME_ID="go", STORAGE_KEY="intochina_game_center_v1";
+  const inIframe=(function(){try{return window.parent && window.parent!==window;}catch(e){return false;}})();
+  function readState(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||{customGames:[],saves:{},settings:{}};}catch(e){return {customGames:[],saves:{},settings:{}};}}
+  function writeState(st){localStorage.setItem(STORAGE_KEY,JSON.stringify(st));}
+  function save(data){
+    if(inIframe){ window.parent.postMessage({source:"intochina-game",action:"save",id:GAME_ID,data},"*"); }
+    const st=readState(); st.saves=st.saves||{}; st.saves[GAME_ID]={data,updatedAt:new Date().toISOString()}; writeState(st);
+  }
+  function load(cb){
+    if(inIframe){
+      const handler=e=>{ if(e.data&&e.data.source==="intochina-launcher"&&e.data.action==="loadResult"&&e.data.id===GAME_ID){ window.removeEventListener("message",handler); cb(e.data.data);} };
+      window.addEventListener("message",handler);
+      window.parent.postMessage({source:"intochina-game",action:"load",id:GAME_ID},"*");
+      setTimeout(()=>{ const st=readState(); cb(st.saves&&st.saves[GAME_ID]?st.saves[GAME_ID].data:null); },250);
+    } else { const st=readState(); cb(st.saves&&st.saves[GAME_ID]?st.saves[GAME_ID].data:null); }
+  }
+  function notify(msg){ if(inIframe){ window.parent.postMessage({source:"intochina-game",action:"notify",data:msg},"*"); } }
+  return {save,load,notify,GAME_ID};
+})();
+
+let HISTORY=[];
+function renderHistory(){
+  const el=document.getElementById('historyList');
+  if(!HISTORY.length){ el.innerHTML='<div class="empty">暂无记录</div>'; return; }
+  let h='<table><tr><th>结果</th><th>时间</th></tr>';
+  HISTORY.slice(0,30).forEach(r=>{ h+=`<tr><td>${r.result}</td><td>${r.time}</td></tr>`; });
+  h+='</table>'; el.innerHTML=h;
+}
+function pushHistory(result){
+  HISTORY.unshift({result,time:new Date().toLocaleString()}); HISTORY=HISTORY.slice(0,50);
+  GameSDK.save({history:HISTORY}); GameSDK.notify('围棋对局结束：'+result); renderHistory();
+}
+document.getElementById('loadBtn').onclick=()=>GameSDK.load(d=>{ HISTORY=(d&&d.history)||[]; renderHistory(); GameSDK.notify('已读取围棋战绩记录'); });
+GameSDK.load(d=>{ HISTORY=(d&&d.history)||[]; renderHistory(); });
+
+const N=9; let board,turn,lastPassed,over;
+function initBoard(){ board=Array.from({length:N},()=>Array(N).fill(0)); }
+function neighbors(r,c){ const n=[]; if(r>0)n.push([r-1,c]); if(r<N-1)n.push([r+1,c]); if(c>0)n.push([r,c-1]); if(c<N-1)n.push([r,c+1]); return n; }
+function groupLiberties(r,c,col){
+  const stack=[[r,c]]; const group=[]; const visited=new Set(); let libs=0;
+  while(stack.length){
+    const [cr,cc]=stack.pop(); const key=cr+','+cc;
+    if(visited.has(key)) continue; visited.add(key);
+    if(board[cr][cc]!==col) continue;
+    group.push([cr,cc]);
+    neighbors(cr,cc).forEach(([nr,nc])=>{
+      if(board[nr][nc]===0) libs++;
+      else if(board[nr][nc]===col && !visited.has(nr+','+nc)) stack.push([nr,nc]);
+    });
+  }
+  return {group,libs};
+}
+function play(r,c){
+  if(over||board[r][c]!==0) return;
+  const col=turn; board[r][c]=col; const opp=col===1?2:1; let captured=false;
+  neighbors(r,c).forEach(([nr,nc])=>{
+    if(board[nr][nc]===opp){ const {group,libs}=groupLiberties(nr,nc,opp); if(libs===0){ group.forEach(([gr,gc])=>board[gr][gc]=0); captured=true; } }
+  });
+  const self=groupLiberties(r,c,col);
+  if(self.libs===0&&!captured){ board[r][c]=0; document.getElementById('status').textContent='禁着点(自杀)，请重新落子'; return; }
+  lastPassed=false; turn=opp;
+  document.getElementById('status').textContent=(turn===1?'黑方':'白方')+'落子';
+  render();
+}
+function pass(){
+  if(over) return;
+  if(lastPassed){
+    over=true;
+    let b=0,w=0; board.forEach(row=>row.forEach(v=>{if(v===1)b++; if(v===2)w++;}));
+    const res=b>w?'黑方以子数领先获胜('+b+' : '+w+')':(w>b?'白方以子数领先获胜('+w+' : '+b+')':'平局');
+    document.getElementById('status').textContent='双方pass，对局结束。'+res;
+    pushHistory(res);
+    return;
+  }
+  lastPassed=true; turn=turn===1?2:1;
+  document.getElementById('status').textContent=(turn===1?'黑方':'白方')+'落子 (对方刚pass)';
+}
+function render(){
+  const el=document.getElementById('board');
+  el.style.gridTemplateColumns=`repeat(${N},36px)`; el.style.gridTemplateRows=`repeat(${N},36px)`;
+  el.innerHTML='';
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+    const cell=document.createElement('div'); cell.className='cell';
+    if(board[r][c]!==0){ const s=document.createElement('div'); s.className='stone '+(board[r][c]===1?'black':'white'); cell.appendChild(s); }
+    cell.onclick=()=>play(r,c);
+    el.appendChild(cell);
+  }
+}
+function reset(){ initBoard(); turn=1; lastPassed=false; over=false; document.getElementById('status').textContent='黑方先行'; render(); }
+document.getElementById('resetBtn').onclick=reset;
+document.getElementById('passBtn').onclick=pass;
+reset();
+</script>
+</body>
+</html>
