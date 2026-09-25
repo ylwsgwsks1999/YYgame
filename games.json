@@ -8,7 +8,7 @@
       "icon": "♟️",
       "description": "中国象棋游戏模块预留入口。",
       "version": "0.1.0",
-      "entry": "games/chess/game.html",
+      "entry": "games/chess.html",
       "category": "棋类",
       "tags": [
         "单机",
@@ -22,7 +22,7 @@
       "icon": "⚫",
       "description": "围棋游戏模块预留入口。",
       "version": "0.1.0",
-      "entry": "games/go/game.html",
+      "entry": "games/go.html",
       "category": "棋类",
       "tags": [
         "单机",
@@ -36,7 +36,7 @@
       "icon": "🚩",
       "description": "军棋游戏模块预留入口。",
       "version": "0.1.0",
-      "entry": "games/jungqi/game.html",
+      "entry": "games/jungqi.html",
       "category": "棋类",
       "tags": [
         "单机",
@@ -50,7 +50,7 @@
       "icon": "🃏",
       "description": "德州扑克游戏模块预留入口。",
       "version": "0.1.0",
-      "entry": "games/poker/game.html",
+      "entry": "games/poker.html",
       "category": "牌类",
       "tags": [
         "单机",
@@ -64,7 +64,7 @@
       "icon": "🀄",
       "description": "麻将游戏模块预留入口。",
       "version": "0.1.0",
-      "entry": "games/mahjong/game.html",
+      "entry": "games/mahjong.html",
       "category": "牌类",
       "tags": [
         "单机",
